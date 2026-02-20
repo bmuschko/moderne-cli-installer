@@ -1,0 +1,80 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  test-installer:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Build installer
+        run: go build -o moderne-cli-installer .
+
+      - name: Get latest CLI version from Maven Central
+        id: get-version
+        run: |
+          # Fetch maven-metadata.xml to get the latest version
+          METADATA_URL="https://repo1.maven.org/maven2/io/moderne/moderne-cli/maven-metadata.xml"
+          LATEST_VERSION=$(curl -s "$METADATA_URL" | grep -oP '(?<=<latest>)[^<]+')
+
+          if [ -z "$LATEST_VERSION" ]; then
+            echo "Failed to fetch latest version, falling back to release version"
+            LATEST_VERSION=$(curl -s "$METADATA_URL" | grep -oP '(?<=<release>)[^<]+')
+          fi
+
+          echo "Latest version: $LATEST_VERSION"
+          echo "version=$LATEST_VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Run installer
+        run: |
+          ./moderne-cli-installer -version ${{ steps.get-version.outputs.version }}
+
+      - name: Verify installation
+        run: |
+          # Source bashrc to get the alias
+          source ~/.bashrc
+
+          # Run mod --version and capture output
+          MOD_OUTPUT=$(mod --version 2>&1 || true)
+          echo "mod --version output:"
+          echo "$MOD_OUTPUT"
+
+          # Verify the version matches
+          EXPECTED_VERSION="${{ steps.get-version.outputs.version }}"
+          if echo "$MOD_OUTPUT" | grep -q "$EXPECTED_VERSION"; then
+            echo "Version verification successful: $EXPECTED_VERSION"
+          else
+            echo "Version mismatch! Expected: $EXPECTED_VERSION"
+            echo "Got: $MOD_OUTPUT"
+            exit 1
+          fi
+
+      - name: Verify JAR file exists
+        run: |
+          JAR_PATH="$HOME/.moderne/bin/moderne-cli-${{ steps.get-version.outputs.version }}.jar"
+          if [ -f "$JAR_PATH" ]; then
+            echo "JAR file exists at: $JAR_PATH"
+            ls -lh "$JAR_PATH"
+          else
+            echo "JAR file not found at: $JAR_PATH"
+            exit 1
+          fi

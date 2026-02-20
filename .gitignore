@@ -1,0 +1,14 @@
+# Build artifacts
+dist/
+moderne-cli-installer
+moderne-cli-installer.exe
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
