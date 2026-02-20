@@ -50,11 +50,11 @@ jobs:
 
       - name: Verify installation
         run: |
-          # Source bashrc to get the alias
-          source ~/.bashrc
+          # Run the JAR directly (aliases don't work in non-interactive shells)
+          JAR_PATH="$HOME/.moderne/bin/moderne-cli-${{ steps.get-version.outputs.version }}.jar"
 
           # Run mod --version and capture output
-          MOD_OUTPUT=$(mod --version 2>&1 || true)
+          MOD_OUTPUT=$(java -jar "$JAR_PATH" --version 2>&1)
           echo "mod --version output:"
           echo "$MOD_OUTPUT"
 
