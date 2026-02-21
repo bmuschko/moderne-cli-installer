@@ -29,6 +29,9 @@ jobs:
           distribution: 'temurin'
           java-version: '21'
 
+      - name: Run tests
+        run: go test -v ./...
+
       - name: Build installer (Unix)
         if: runner.os != 'Windows'
         run: go build -o moderne-cli-installer .
