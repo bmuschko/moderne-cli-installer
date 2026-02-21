@@ -3,7 +3,6 @@
 
 download:
   # Base URL for downloading the CLI JAR
-  # Default: https://repo1.maven.org/maven2/io/moderne/moderne-cli
   baseUrl: https://repo1.maven.org/maven2/io/moderne/moderne-cli
 
   # Proxy settings (optional - remove this section if not needed)
