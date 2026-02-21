@@ -1,0 +1,13 @@
+# Moderne CLI post-installation commands
+#
+# Each line is executed as a shell command (bash on Unix, PowerShell on Windows).
+# The $MOD variable is pre-defined as "java -jar <path-to-jar>".
+#
+# Lines starting with # are comments.
+# Empty lines are ignored.
+#
+# Examples:
+# $MOD config license YOUR_LICENSE_KEY
+# $MOD config moderne https://app.moderne.io
+# echo "Installation complete"
+# curl -s https://example.com/setup.sh | bash

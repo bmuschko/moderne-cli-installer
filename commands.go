@@ -1,52 +1,127 @@
 package main
 
 import (
+	"bufio"
+	"embed"
+	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"runtime"
+	"strings"
 )
 
-// ModCommand represents a command to run after installation.
-type ModCommand struct {
-	Args        []string
-	Description string
-}
+//go:embed commands.txt
+var embeddedCommands embed.FS
 
-// PostInstallCommands defines the commands to run after installation.
-// Customize this list based on your requirements.
-var PostInstallCommands = []ModCommand{
-	// Example commands - uncomment and modify as needed:
-	// {Args: []string{"config", "license", "YOUR_LICENSE_KEY"}, Description: "Configuring license"},
-	// {Args: []string{"config", "moderne", "https://app.moderne.io"}, Description: "Configuring Moderne platform URL"},
-}
+const commandsFileName = "commands.txt"
 
 // runPostInstallCommands executes configured commands after installation.
 func (i *Installer) runPostInstallCommands() error {
-	if len(PostInstallCommands) == 0 {
+	commands, source := i.loadCommands()
+
+	if len(commands) == 0 {
 		i.logger.Info("No post-installation commands configured")
 		return nil
 	}
 
 	i.logger.Step("Running post-installation commands")
+	i.logger.Info("Loaded %d command(s) from %s", len(commands), source)
 
-	for _, cmd := range PostInstallCommands {
-		if err := i.executeModCommand(cmd); err != nil {
-			i.logger.Warning("Command failed: %v", err)
-			// Continue with other commands even if one fails
+	for _, cmdLine := range commands {
+		if err := i.executeCommand(cmdLine); err != nil {
+			i.logger.Warning("Command '%s' failed: %v", cmdLine, err)
 		} else {
-			i.logger.Success("Completed: %s", cmd.Description)
+			i.logger.Success("Executed: %s", cmdLine)
 		}
 	}
 
 	return nil
 }
 
-func (i *Installer) executeModCommand(cmd ModCommand) error {
-	i.logger.Info("%s...", cmd.Description)
+// loadCommands tries to load commands from an external file first,
+// then falls back to the embedded file.
+func (i *Installer) loadCommands() ([]string, string) {
+	// Try external file first (next to the binary)
+	exePath, err := os.Executable()
+	if err == nil {
+		externalPath := filepath.Join(filepath.Dir(exePath), commandsFileName)
+		if commands, err := i.parseCommandsFile(externalPath); err == nil && len(commands) > 0 {
+			return commands, externalPath
+		}
+	}
 
-	args := append([]string{"-jar", i.jarPath}, cmd.Args...)
-	execCmd := exec.Command("java", args...)
-	execCmd.Stdout = os.Stdout
-	execCmd.Stderr = os.Stderr
+	// Try external file in current working directory
+	if commands, err := i.parseCommandsFile(commandsFileName); err == nil && len(commands) > 0 {
+		cwd, _ := os.Getwd()
+		return commands, filepath.Join(cwd, commandsFileName)
+	}
 
-	return execCmd.Run()
+	// Fall back to embedded file
+	if commands, err := i.parseEmbeddedCommands(); err == nil && len(commands) > 0 {
+		return commands, "embedded"
+	}
+
+	return nil, ""
+}
+
+func (i *Installer) parseCommandsFile(path string) ([]string, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	return i.parseCommands(bufio.NewScanner(file))
+}
+
+func (i *Installer) parseEmbeddedCommands() ([]string, error) {
+	file, err := embeddedCommands.Open(commandsFileName)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	return i.parseCommands(bufio.NewScanner(file))
+}
+
+func (i *Installer) parseCommands(scanner *bufio.Scanner) ([]string, error) {
+	var commands []string
+
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+
+		// Skip empty lines and comments
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+
+		commands = append(commands, line)
+	}
+
+	return commands, scanner.Err()
+}
+
+// executeCommand runs a command through the shell with MOD variable defined.
+func (i *Installer) executeCommand(cmdLine string) error {
+	var cmd *exec.Cmd
+
+	// Define MOD as "java -jar <path>" so commands can use $MOD or %MOD%
+	modValue := fmt.Sprintf("java -jar %s", i.jarPath)
+
+	if runtime.GOOS == "windows" {
+		// PowerShell: define $env:MOD and run command
+		script := fmt.Sprintf(`$env:MOD = '%s'; %s`, modValue, cmdLine)
+		cmd = exec.Command("powershell", "-NoProfile", "-Command", script)
+	} else {
+		// Bash: define MOD and run command
+		script := fmt.Sprintf(`MOD="%s"; %s`, modValue, cmdLine)
+		cmd = exec.Command("bash", "-c", script)
+	}
+
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Env = os.Environ()
+
+	return cmd.Run()
 }
