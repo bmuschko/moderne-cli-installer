@@ -11,10 +11,10 @@ import (
 	"strings"
 )
 
-//go:embed commands.txt
+//go:embed post-install-commands.txt
 var embeddedCommands embed.FS
 
-const commandsFileName = "commands.txt"
+const commandsFileName = "post-install-commands.txt"
 
 // runPostInstallCommands executes configured commands after installation.
 func (i *Installer) runPostInstallCommands() error {
