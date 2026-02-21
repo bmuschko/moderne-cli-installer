@@ -49,8 +49,6 @@ The installer supports a YAML configuration file for advanced settings. Place a 
 
 ```yaml
 download:
-  # Base URL for downloading the CLI JAR
-  # Default: https://repo1.maven.org/maven2/io/moderne/moderne-cli
   baseUrl: https://repo1.maven.org/maven2/io/moderne/moderne-cli
 
   # Proxy settings (optional)
@@ -207,7 +205,3 @@ go build -o moderne-cli-installer .
 ```bash
 go test -v ./...
 ```
-
-## License
-
-[Add your license here]
