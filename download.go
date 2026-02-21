@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
+	"strings"
 )
 
 // downloadJAR downloads the Moderne CLI JAR file.
@@ -18,10 +20,16 @@ func (i *Installer) downloadJAR() error {
 	}
 
 	// Construct download URL (Maven Central format: baseURL/version/moderne-cli-version.jar)
-	downloadURL := fmt.Sprintf("%s/%s/%s", i.baseURL, i.version, i.jarFileName)
+	downloadURL := fmt.Sprintf("%s/%s/%s", i.config.Download.BaseURL, i.version, i.jarFileName)
 	i.logger.Info("Downloading from: %s", downloadURL)
 
-	resp, err := http.Get(downloadURL)
+	// Create HTTP client with optional proxy
+	client, err := i.createHTTPClient()
+	if err != nil {
+		return fmt.Errorf("failed to create HTTP client: %w", err)
+	}
+
+	resp, err := client.Get(downloadURL)
 	if err != nil {
 		return fmt.Errorf("failed to download: %w", err)
 	}
@@ -61,6 +69,48 @@ func (i *Installer) downloadJAR() error {
 
 	i.logger.Success("Downloaded %.2f MB to %s", float64(written)/(1024*1024), i.jarPath)
 	return nil
+}
+
+// createHTTPClient creates an HTTP client with optional proxy configuration.
+func (i *Installer) createHTTPClient() (*http.Client, error) {
+	if !i.config.Download.HasProxy() {
+		return http.DefaultClient, nil
+	}
+
+	proxy := i.config.Download.Proxy
+	i.logger.Info("Using proxy: %s", proxy.URL)
+
+	proxyURL, err := url.Parse(proxy.URL)
+	if err != nil {
+		return nil, fmt.Errorf("invalid proxy URL: %w", err)
+	}
+
+	// Add authentication if provided
+	if proxy.Username != "" {
+		proxyURL.User = url.UserPassword(proxy.Username, proxy.Password)
+	}
+
+	transport := &http.Transport{
+		Proxy: func(req *http.Request) (*url.URL, error) {
+			// Check noProxy list
+			if proxy.NoProxy != "" {
+				host := req.URL.Hostname()
+				for _, noProxyHost := range strings.Split(proxy.NoProxy, ",") {
+					noProxyHost = strings.TrimSpace(noProxyHost)
+					if noProxyHost == "" {
+						continue
+					}
+					// Match exact host or suffix (e.g., .internal.domain)
+					if host == noProxyHost || strings.HasSuffix(host, noProxyHost) {
+						return nil, nil // No proxy for this host
+					}
+				}
+			}
+			return proxyURL, nil
+		},
+	}
+
+	return &http.Client{Transport: transport}, nil
 }
 
 // progressReader wraps an io.Reader to report download progress.

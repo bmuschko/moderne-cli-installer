@@ -7,8 +7,17 @@ import (
 )
 
 func main() {
+	// Load configuration
+	config, configSource, err := LoadConfig()
+	if err != nil {
+		fmt.Printf("Warning: failed to load config: %v\n", err)
+		config = DefaultConfig()
+		configSource = "defaults"
+	}
+
+	// Parse CLI flags (override config values)
 	version := flag.String("version", "", "Version of the Moderne CLI to install (required)")
-	baseURL := flag.String("url", DefaultBaseURL, "Base URL for downloading the CLI JAR")
+	baseURL := flag.String("url", "", "Base URL for downloading the CLI JAR")
 	flag.Parse()
 
 	if *version == "" {
@@ -18,7 +27,14 @@ func main() {
 		os.Exit(1)
 	}
 
-	installer := NewInstaller(*version, *baseURL)
+	// CLI flag overrides config
+	if *baseURL != "" {
+		config.Download.BaseURL = *baseURL
+	}
+
+	fmt.Printf("Using configuration from: %s\n", configSource)
+
+	installer := NewInstallerWithConfig(*version, config)
 	if err := installer.Run(); err != nil {
 		fmt.Printf("Installation failed: %v\n", err)
 		os.Exit(1)

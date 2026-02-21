@@ -20,7 +20,7 @@ const (
 // Installer manages the Moderne CLI installation process.
 type Installer struct {
 	version     string
-	baseURL     string
+	config      *Config
 	installDir  string
 	binDir      string
 	jarPath     string
@@ -28,8 +28,8 @@ type Installer struct {
 	logger      *Logger
 }
 
-// NewInstaller creates a new Installer instance.
-func NewInstaller(version, baseURL string) *Installer {
+// NewInstallerWithConfig creates a new Installer instance with the given config.
+func NewInstallerWithConfig(version string, config *Config) *Installer {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		fmt.Printf("Warning: could not determine home directory: %v\n", err)
@@ -43,7 +43,7 @@ func NewInstaller(version, baseURL string) *Installer {
 
 	return &Installer{
 		version:     version,
-		baseURL:     baseURL,
+		config:      config,
 		installDir:  installDir,
 		binDir:      binDir,
 		jarPath:     jarPath,
@@ -56,6 +56,7 @@ func NewInstaller(version, baseURL string) *Installer {
 func (i *Installer) Run() error {
 	i.logger.Step("Starting Moderne CLI installation")
 	i.logger.Info("Version: %s", i.version)
+	i.logger.Info("Download URL: %s", i.config.Download.BaseURL)
 	i.logger.Info("Install directory: %s", i.installDir)
 
 	if err := i.createDirectories(); err != nil {

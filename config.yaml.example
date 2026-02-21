@@ -1,0 +1,14 @@
+# Moderne CLI Installer Configuration
+# Copy this file to config.yaml and customize as needed.
+
+download:
+  # Base URL for downloading the CLI JAR
+  # Default: https://repo1.maven.org/maven2/io/moderne/moderne-cli
+  baseUrl: https://repo1.maven.org/maven2/io/moderne/moderne-cli
+
+  # Proxy settings (optional - remove this section if not needed)
+  # proxy:
+  #   url: http://proxy.example.com:8080
+  #   username: proxyuser
+  #   password: proxypass
+  #   noProxy: localhost,127.0.0.1,.internal.domain
