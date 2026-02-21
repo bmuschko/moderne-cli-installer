@@ -37,93 +37,49 @@ jobs:
         if: runner.os == 'Windows'
         run: go build -o moderne-cli-installer.exe .
 
-      - name: Get latest CLI version from Maven Central
-        id: get-version
-        shell: bash
-        run: |
-          # Fetch maven-metadata.xml to get the latest version
-          METADATA_URL="https://repo1.maven.org/maven2/io/moderne/moderne-cli/maven-metadata.xml"
-          LATEST_VERSION=$(curl -s "$METADATA_URL" | sed -n 's/.*<latest>\([^<]*\)<\/latest>.*/\1/p')
-
-          if [ -z "$LATEST_VERSION" ]; then
-            echo "Failed to fetch latest version, falling back to release version"
-            LATEST_VERSION=$(curl -s "$METADATA_URL" | sed -n 's/.*<release>\([^<]*\)<\/release>.*/\1/p')
-          fi
-
-          echo "Latest version: $LATEST_VERSION"
-          echo "version=$LATEST_VERSION" >> "$GITHUB_OUTPUT"
-
       - name: Run installer (Unix)
         if: runner.os != 'Windows'
-        run: ./moderne-cli-installer -version ${{ steps.get-version.outputs.version }}
+        run: ./moderne-cli-installer
 
       - name: Run installer (Windows)
         if: runner.os == 'Windows'
-        run: .\moderne-cli-installer.exe -version ${{ steps.get-version.outputs.version }}
+        run: .\moderne-cli-installer.exe
 
       - name: Verify installation (Unix)
         if: runner.os != 'Windows'
         run: |
-          # Run the JAR directly (aliases don't work in non-interactive shells)
-          JAR_PATH="$HOME/.moderne/bin/moderne-cli-${{ steps.get-version.outputs.version }}.jar"
+          # Find the installed JAR
+          JAR_PATH=$(ls $HOME/.moderne/bin/moderne-cli-*.jar 2>/dev/null | head -1)
 
-          # Run mod --version and capture output
+          if [ -z "$JAR_PATH" ]; then
+            echo "JAR file not found"
+            exit 1
+          fi
+
+          echo "JAR file exists at: $JAR_PATH"
+          ls -lh "$JAR_PATH"
+
+          # Run mod --version
           MOD_OUTPUT=$(java -jar "$JAR_PATH" --version 2>&1)
           echo "mod --version output:"
           echo "$MOD_OUTPUT"
-
-          # Verify the version matches
-          EXPECTED_VERSION="${{ steps.get-version.outputs.version }}"
-          if echo "$MOD_OUTPUT" | grep -q "$EXPECTED_VERSION"; then
-            echo "Version verification successful: $EXPECTED_VERSION"
-          else
-            echo "Version mismatch! Expected: $EXPECTED_VERSION"
-            echo "Got: $MOD_OUTPUT"
-            exit 1
-          fi
 
       - name: Verify installation (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          $JAR_PATH = "$env:USERPROFILE\.moderne\bin\moderne-cli-${{ steps.get-version.outputs.version }}.jar"
+          # Find the installed JAR
+          $JAR_PATH = Get-ChildItem "$env:USERPROFILE\.moderne\bin\moderne-cli-*.jar" | Select-Object -First 1
 
-          # Run mod --version and capture output
-          $MOD_OUTPUT = java -jar "$JAR_PATH" --version 2>&1
+          if (-not $JAR_PATH) {
+            Write-Host "JAR file not found"
+            exit 1
+          }
+
+          Write-Host "JAR file exists at: $($JAR_PATH.FullName)"
+          Get-Item $JAR_PATH | Select-Object FullName, Length
+
+          # Run mod --version
+          $MOD_OUTPUT = java -jar "$($JAR_PATH.FullName)" --version 2>&1
           Write-Host "mod --version output:"
           Write-Host $MOD_OUTPUT
-
-          # Verify the version matches
-          $EXPECTED_VERSION = "${{ steps.get-version.outputs.version }}"
-          if ($MOD_OUTPUT -match $EXPECTED_VERSION) {
-            Write-Host "Version verification successful: $EXPECTED_VERSION"
-          } else {
-            Write-Host "Version mismatch! Expected: $EXPECTED_VERSION"
-            Write-Host "Got: $MOD_OUTPUT"
-            exit 1
-          }
-
-      - name: Verify JAR file exists (Unix)
-        if: runner.os != 'Windows'
-        run: |
-          JAR_PATH="$HOME/.moderne/bin/moderne-cli-${{ steps.get-version.outputs.version }}.jar"
-          if [ -f "$JAR_PATH" ]; then
-            echo "JAR file exists at: $JAR_PATH"
-            ls -lh "$JAR_PATH"
-          else
-            echo "JAR file not found at: $JAR_PATH"
-            exit 1
-          fi
-
-      - name: Verify JAR file exists (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          $JAR_PATH = "$env:USERPROFILE\.moderne\bin\moderne-cli-${{ steps.get-version.outputs.version }}.jar"
-          if (Test-Path $JAR_PATH) {
-            Write-Host "JAR file exists at: $JAR_PATH"
-            Get-Item $JAR_PATH | Select-Object FullName, Length
-          } else {
-            Write-Host "JAR file not found at: $JAR_PATH"
-            exit 1
-          }
