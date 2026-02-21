@@ -15,15 +15,9 @@ func main() {
 		configSource = "defaults"
 	}
 
-	// Parse CLI flags (override config values)
+	// Parse CLI flags
 	version := flag.String("version", "", "Version of the Moderne CLI to install (default: latest)")
-	baseURL := flag.String("url", "", "Base URL for downloading the CLI JAR")
 	flag.Parse()
-
-	// CLI flag overrides config
-	if *baseURL != "" {
-		config.Download.BaseURL = *baseURL
-	}
 
 	fmt.Printf("Using configuration from: %s\n", configSource)
 
