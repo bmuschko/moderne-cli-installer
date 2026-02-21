@@ -41,9 +41,10 @@ A cross-platform installer for the [Moderne CLI](https://docs.moderne.io/moderne
 
 ## Configuration
 
-The installer supports a YAML configuration file for advanced settings. Place a `config.yaml` file either:
-- Next to the installer binary, or
-- In the current working directory
+The installer supports a YAML configuration file for advanced settings. Place a `config.yaml` file in one of these locations (checked in order):
+
+1. Next to the installer binary (e.g., `/usr/local/bin/config.yaml`)
+2. In the current working directory (where you run the command from)
 
 ### Configuration File
 
@@ -105,7 +106,10 @@ Note: Auto-version detection requires `maven-metadata.xml`, so you must use `-ve
 
 ## Post-Installation Commands
 
-The installer can run commands automatically after installation. Create a `post-install-commands.txt` file next to the installer binary or in the current working directory.
+The installer can run commands automatically after installation. Create a `post-install-commands.txt` file in one of these locations (checked in order):
+
+1. Next to the installer binary (e.g., `/usr/local/bin/post-install-commands.txt`)
+2. In the current working directory (where you run the command from)
 
 ### File Format
 
